@@ -76,9 +76,11 @@ def index():
     # authorization complete
     # business logic
 
-    message = ['Yo! OAuth2 authorization complete!!']
+    query = 'in:sent after:2014/01/01 before:2014/01/30'
 
-    return json.dumps(message)
+    mails = get_user_emails(credentials, query, 'me')
+    return json.dumps(mails)
+
 
 
 @app.route('/handle_callback')
