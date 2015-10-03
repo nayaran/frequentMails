@@ -5,6 +5,13 @@ import pprint
 import apiclient
 import oauth2client
 import oauth2client.client
+import logging
+
+from collections import OrderedDict
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(levelname)-8s %(message)s',
+                    )
 
 
 from oauth2client.client import FlowExchangeError
@@ -18,6 +25,55 @@ SCOPES = ['https://www.googleapis.com/auth/userinfo.email',
 
 GMAIL_API_NAME = 'gmail'
 GMAIL_API_VERSION = 'v1'
+
+def process_messages(service, userId, mailsList):
+
+  # stores message meatdata
+  headers = []
+
+  # stores the final dictionary to be returned
+  report = {}
+
+
+  # fetching messages metadata from supplied message id lists
+  logging.debug('fetching messages metadata from supplied message id lists')
+  for mail in mailsList:
+    message = service.users().messages().get(userId=userId, id=mail['id'], format='metadata').execute()
+    # store the fetched metadata in headers
+    headers.extend([message['payload']['headers']])
+
+
+  # process the list of messages metadata to generate the report
+  logging.debug('processing the list of messages metadata to generate the report')
+  for mail in headers:
+    # traverse the list of headers
+    for item in mail:
+      # traverse the items in each header
+
+      if item['name'] == 'To':
+        # if the item is 'to', process it
+
+        # fetch the list of recipients
+        recipients = item['value']
+
+        # extract individual recipients, count the occurences
+        # and store in a dictionary
+        for name in recipients.split(','):
+          try:
+            report[name.strip()] += 1
+          except KeyError:
+            report[name.strip()] = 0
+
+
+
+  # create a sorted dictionary, based on the count
+  report = OrderedDict(sorted(report.items(), key=lambda value: value[1], reverse=True))
+
+  logging.debug('generated the report')
+
+  return report
+
+
 
 def get_user_emails(credentials, query, userId):
   '''
@@ -37,8 +93,13 @@ def get_user_emails(credentials, query, userId):
   result = gmail_service_object.users().messages().list(userId=userId,
                                                q=query).execute()
 
-  # return the emails returned
-  return result
+  logging.debug('fetched %d emails matching the query %s', result['resultSizeEstimate'], query)
+  # process the emails to generate the report
+  mails = result['messages']
+  report = process_messages(gmail_service_object, userId, mails)
+
+  # return the report
+  return report
 
 def build_service(service_name, version, http):
   '''
@@ -69,19 +130,26 @@ def index():
   # check if we need to again get the access taken
   if credentials.access_token_expired:
     # token expired, so redirect the user to authentication server
+    logging.debug('Access token expired, redirecting to auth server')
     return flask.redirect(flask.url_for('handle_callback'))
 
   else:
 
     # authorization complete
+    logging.debug('User authorization successful :)')
+
     # business logic
 
+    # construct the query
     query = 'in:sent after:2014/01/01 before:2014/01/30'
 
-    mails = get_user_emails(credentials, query, 'me')
-    return json.dumps(mails)
+    # retrive the report
+    report = get_user_emails(credentials, query, 'me')
 
+    # jsonify and return the report
+    return flask.Response(json.dumps(report), mimetype='application/json')
 
+mimetype='application/json'
 
 @app.route('/handle_callback')
 def handle_callback():
