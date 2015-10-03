@@ -6,6 +6,7 @@ import apiclient
 import oauth2client
 import oauth2client.client
 import logging
+import itertools
 
 from collections import OrderedDict
 
@@ -25,6 +26,34 @@ SCOPES = ['https://www.googleapis.com/auth/userinfo.email',
 
 GMAIL_API_NAME = 'gmail'
 GMAIL_API_VERSION = 'v1'
+
+USER_INFO_API_NAME = 'oauth2'
+USER_INFO_API_VERSION = 'v2'
+LIMIT = 7
+
+def get_user_info(credentials):
+  '''
+  Send a request to the UserInfo API to retrieve the user's information.
+
+  Args:
+    credentials: oauth2client.client.OAuth2Credentials instance to authorize the
+                 request.
+  Returns:
+    [user's name, user's email]
+  '''
+  # create http object to handle http request
+  http = httplib2.Http()
+
+  # add credentials to the authentication header
+  http_auth = credentials.authorize(http)
+
+  # build the google api service object for calling the api
+  user_info_service = build_service(USER_INFO_API_NAME, USER_INFO_API_VERSION, http)
+  user_info = None
+
+  # execute the api
+  user_info = user_info_service.userinfo().get().execute()
+  return [user_info.get('name'), user_info.get('email')]
 
 def process_messages(service, userId, mailsList):
 
@@ -50,7 +79,7 @@ def process_messages(service, userId, mailsList):
     for item in mail:
       # traverse the items in each header
 
-      if item['name'] == 'To':
+      if item['name'] in ['To', 'Cc', 'Bcc']:
         # if the item is 'to', process it
 
         # fetch the list of recipients
@@ -62,12 +91,15 @@ def process_messages(service, userId, mailsList):
           try:
             report[name.strip()] += 1
           except KeyError:
-            report[name.strip()] = 0
+            report[name.strip()] = 1
 
 
 
   # create a sorted dictionary, based on the count
   report = OrderedDict(sorted(report.items(), key=lambda value: value[1], reverse=True))
+
+  # truncate the report to contain only LIMIT items
+  report = OrderedDict(itertools.islice(report.items(), LIMIT))
 
   logging.debug('generated the report')
 
@@ -79,6 +111,18 @@ def get_user_emails(credentials, query, userId):
   '''
   Returns the emails of the user filtered by the query
   '''
+  # the final report dictionary
+  report = OrderedDict()
+
+  # fetch user's information using get_user_info
+  logging.debug('fetching user info-> name, email')
+  user_info = get_user_info(credentials)
+
+  # add user info to the report
+  report['name'] = user_info[0]
+  report['email'] = user_info[1]
+
+  # fetch emails report
 
   # create http object to handle http request
   http = httplib2.Http()
@@ -92,11 +136,13 @@ def get_user_emails(credentials, query, userId):
   # execute the api
   result = gmail_service_object.users().messages().list(userId=userId,
                                                q=query).execute()
-
   logging.debug('fetched %d emails matching the query %s', result['resultSizeEstimate'], query)
   # process the emails to generate the report
   mails = result['messages']
-  report = process_messages(gmail_service_object, userId, mails)
+  mail_report = process_messages(gmail_service_object, userId, mails)
+
+  # update the report with the emails report
+  report.update(mail_report)
 
   # return the report
   return report
