@@ -157,7 +157,7 @@ def build_service(service_name, version, http):
 
 
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
   '''
   The main method, binds together the whole application
@@ -168,7 +168,8 @@ def index():
   if 'credentials' not in flask.session:
 
     # if not found, redirect the user to authentication server
-    return flask.redirect(flask.url_for('handle_callback'))
+    flask.flash('You need to log in!')
+    return flask.render_template('reports.html', entries='')
 
   # retrieve the credentials from the session
   credentials = oauth2client.client.OAuth2Credentials.from_json(flask.session['credentials'])
@@ -181,21 +182,40 @@ def index():
 
   else:
 
+    error = ''
+    if flask.request.method == 'POST':
+
+      # user has provided the input
+      # extract details from user submitted form
+
+      # business logic
+
+
+      if flask.request.form['fromDate'] == "":
+            error = 'Invalid Date'
+
+      else:
+            afterDate = flask.request.form['fromDate']
+            logging.debug('afterDate - %s', afterDate)
+            # construct the query
+            query = 'in:sent after:2014/01/01 before:2014/01/30'
+
+            # retrive the report
+            report = get_user_emails(credentials, query, 'me')
+
+            # jsonify and return the report
+            # return flask.Response(json.dumps(report), mimetype='application/json')
+            #report = json.dumps(report)
+            return flask.render_template('reports.html', report=report)
+
     # authorization complete
     logging.debug('User authorization successful :)')
 
-    # business logic
+    # redirect to user input page
+    flask.flash('You were logged in successfully!')
+    return flask.render_template('user_input.html', error=error)
 
-    # construct the query
-    query = 'in:sent after:2014/01/01 before:2014/01/30'
 
-    # retrive the report
-    report = get_user_emails(credentials, query, 'me')
-
-    # jsonify and return the report
-    return flask.Response(json.dumps(report), mimetype='application/json')
-
-mimetype='application/json'
 
 @app.route('/handle_callback')
 def handle_callback():
@@ -237,6 +257,12 @@ def handle_callback():
     # redirect the user to the home page for executing the business logic
     return flask.redirect(flask.url_for('index'))
 
+
+@app.route('/revoke')
+def revoke():
+  # retrieve the credentials from the session
+  credentials = oauth2client.client.OAuth2Credentials.from_json(flask.session['credentials'])
+  credentials.revoke(httplib2.Http())
 
 if __name__ == '__main__':
   '''
