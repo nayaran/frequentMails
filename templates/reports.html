@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+{% block body %}
+	{% if 'credentials' in session %}
+
+	<ul class=entries>
+	{% for key, value in report.iteritems() %}
+		<li>{{ key }} : {{ value }} 
+	{% else %}
+		<li><em>You need to sign in and allow freqGmails to access your information before you can see the most frequent emails report!</em>
+	{% endfor %}
+	{% endif %}
+	</ul>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block body %}
+{% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+<form action="{{ url_for('index') }}" method=post>
+	<dl>
+	<dt>From Date:
+	<dd><input type=date name=fromDate>
+	<dd><input type=submit value=generateReport>
+	</dl>
+</form>
+{% endblock %}
