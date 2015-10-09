@@ -6,7 +6,7 @@
 	{% for key, value in report.iteritems() %}
 		<li>{{ key }} : {{ value }} 
 	{% else %}
-		<li><em>You need to sign in and allow freqGmails to access your information before you can see the most frequent emails report!</em>
+		<li><em>No emails to display!</em>
 	{% endfor %}
 	{% endif %}
 	</ul>

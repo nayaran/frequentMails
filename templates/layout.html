@@ -5,6 +5,7 @@
 	<h1>frequentMails</h1>
 
 	<div class=metanav>
+		<a href="{{ url_for('index') }}">home</a>
 		{% if 'credentials' not in session %}
 		<a href="{{ url_for('handle_callback') }}">log in</a>
 		{% else %}

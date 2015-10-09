@@ -1,11 +1,53 @@
 {% extends "layout.html" %}
 {% block body %}
 {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
-<form action="{{ url_for('index') }}" method=post>
+
+<script>
+
+function validate(){
+
+	var fromDate = document.forms["inputForm"]["fromDate"].value;
+	var toDate = document.forms["inputForm"]["toDate"].value;
+	
+	document.getElementById("fromDateErrorMsg").innerHTML = "";
+	document.getElementById("toDateErrorMsg").innerHTML = "";	
+
+	if(fromDate == null || fromDate == "")
+	{
+		document.getElementById("fromDateErrorMsg").innerHTML = "Please select a from date!";
+		return false
+	}
+
+
+	if(toDate == null || toDate == "")
+	{	
+		document.getElementById("toDateErrorMsg").innerHTML = "Please select a to date!";
+		return false
+	}
+
+
+	if ((new Date(fromDate)) > (new Date(toDate)))
+	{
+		document.getElementById("toDateErrorMsg").innerHTML = "To Date cannot be earlier than From Date!";
+		return false	
+	}
+	return true;
+}
+
+</script>
+
+
+<form name= "inputForm" action="{{ url_for('index') }}" method="post" onsubmit="return validate()">
 	<dl>
 	<dt>From Date:
-	<dd><input type=date name=fromDate>
-	<dd><input type=submit value=generateReport>
+	<dd><input type="date" name="fromDate">
+	<label id="fromDateErrorMsg"></label>
+	<dd><br>
+	<dt>To Date:
+	<dd><input type="date" name="toDate">
+	<label id="toDateErrorMsg"></label>
+	<dd><br>
+	<dd><input type="submit" value="Generate Report">
 	</dl>
 </form>
 {% endblock %}
