@@ -1,0 +1,24 @@
+-	install git
+	-	sudo apt-get install git
+
+-	copy git ssh key
+	-	cp ~/.ssh/id_rsa ~/vagrant/frequentMails
+	-	cd ~/vagrant/frequentMails
+	-	vagrant ssh
+	-	cp /vagrant/id_rsa ~/.ssh
+	-	ssh -T git@github.com
+
+-	get the code
+	-	git clone git@github.com:nayaran/frequentMails.git
+
+-	install pip
+	-	sudo apt-get install python-pip
+-	install Flask
+	-	sudo pip install Flask
+-	install httplib2
+	-	sudo pip install httplib2
+-	install google-api-python-client library
+	- 	pip install --upgrade google-api-python-client
+-	make sure you the app is globally accessible
+	-	 app.run(host='0.0.0.0')
+-	register call back uri in google developer console
