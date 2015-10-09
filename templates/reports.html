@@ -3,11 +3,21 @@
 	{% if 'credentials' in session %}
 
 	<ul class=entries>
-	{% for key, value in report.iteritems() %}
+	{% set count = 0 %}
+
+	{%	for key, value in report.iteritems() %}
+		{% if count == 2 %}
+		{% set count = count + 1 %}
+		<li> <div class=flash>Following are the most frequent contacts-</div>
+		{% else %}
 		<li>{{ key }} : {{ value }} 
-	{% else %}
+		{% set count = count + 1 %}
+		{%endif%}
+	{%  else %}
 		<li><em>No emails to display!</em>
-	{% endfor %}
-	{% endif %}
+	{% 	endfor %}
+	
+	{% 	endif %}
+
 	</ul>
 {% endblock %}
