@@ -9,6 +9,8 @@ import logging
 import itertools
 
 from collections import OrderedDict
+from oauth2client.client import AccessTokenRefreshError
+from oauth2client.client import TokenRevokeError
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(levelname)-8s %(message)s',
@@ -52,7 +54,13 @@ def get_user_info(credentials):
   user_info = None
 
   # execute the api
-  user_info = user_info_service.userinfo().get().execute()
+  try:
+    user_info = user_info_service.userinfo().get().execute()
+  except AccessTokenRefreshError:
+    logging.debug('Access token refresh error, redirecting to auth server')
+    return flask.redirect(flask.url_for('handle_callback'))
+
+  logging.debug('returning from get_user_info')
   return [user_info.get('name'), user_info.get('email')]
 
 def process_messages(service, userId, mailsList):
@@ -67,10 +75,15 @@ def process_messages(service, userId, mailsList):
   # fetching messages metadata from supplied message id lists
   logging.debug('fetching messages metadata from supplied message id lists')
   for mail in mailsList:
-    message = service.users().messages().get(userId=userId, id=mail['id'], format='metadata').execute()
-    # store the fetched metadata in headers
-    headers.extend([message['payload']['headers']])
 
+    try:
+      message = service.users().messages().get(userId=userId, id=mail['id'], format='metadata').execute()
+      # store the fetched metadata in headers
+      headers.extend([message['payload']['headers']])
+
+    except AccessTokenRefreshError:
+      logging.debug('Access token refresh error, redirecting to auth server')
+      return flask.redirect(flask.url_for('handle_callback'))
 
   # process the list of messages metadata to generate the report
   logging.debug('processing the list of messages metadata to generate the report')
@@ -92,8 +105,6 @@ def process_messages(service, userId, mailsList):
             report[name.strip()] += 1
           except KeyError:
             report[name.strip()] = 1
-
-
 
   # create a sorted dictionary, based on the count
   report = OrderedDict(sorted(report.items(), key=lambda value: value[1], reverse=True))
@@ -119,6 +130,7 @@ def get_user_emails(credentials, query, userId):
   user_info = get_user_info(credentials)
 
   # add user info to the report
+  # if type(user_info) == 'list':
   report['name'] = user_info[0]
   report['email'] = user_info[1]
 
@@ -134,8 +146,12 @@ def get_user_emails(credentials, query, userId):
   gmail_service_object = build_service(GMAIL_API_NAME, GMAIL_API_VERSION, http_auth)
 
   # execute the api
-  result = gmail_service_object.users().messages().list(userId=userId,
+  try:
+    result = gmail_service_object.users().messages().list(userId=userId,
                                                q=query).execute()
+  except AccessTokenRefreshError:
+    logging.debug('Access token refresh error, redirecting to auth server')
+    return flask.redirect(flask.url_for('handle_callback'))
   logging.debug('fetched %d emails matching the query %s', result['resultSizeEstimate'], query)
   # process the emails to generate the report
   mails = result['messages']
@@ -154,7 +170,6 @@ def build_service(service_name, version, http):
   service = apiclient.discovery.build(service_name, version, http)
 
   return service
-
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -212,6 +227,7 @@ def index():
     logging.debug('User authorization successful :)')
 
     # redirect to user input page
+
     flask.flash('You were logged in successfully!')
     return flask.render_template('user_input.html', error=error)
 
@@ -224,6 +240,7 @@ def handle_callback():
   Handles the redirection back from the authentication server after user consent
   Performs the OAuth2 authorization steps
   '''
+  logging.debug('inside handl_callback')
 
   # create a client flow to assist in the authorization process
   flow = oauth2client.client.flow_from_clientsecrets(
@@ -262,7 +279,15 @@ def handle_callback():
 def revoke():
   # retrieve the credentials from the session
   credentials = oauth2client.client.OAuth2Credentials.from_json(flask.session['credentials'])
-  credentials.revoke(httplib2.Http())
+  flask.flash('You were successfully logged out!')
+  try:
+    credentials.revoke(httplib2.Http())
+    logging.debug('clearing the session after revoking the access')
+    flask.session.clear()
+    return flask.redirect(flask.url_for('index'))
+  except TokenRevokeError:
+    return flask.redirect(flask.url_for('index'))
+
 
 if __name__ == '__main__':
   '''
